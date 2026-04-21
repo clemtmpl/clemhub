@@ -8,7 +8,8 @@ export interface ModuleDefinition {
   description: string
   icon: LucideIcon
   href: string
-  gradient: string
+  accent: string
+  glow: string
   enabled: boolean
   comingSoon?: boolean
 }
@@ -20,7 +21,8 @@ export const MODULES: ModuleDefinition[] = [
     description: 'Gestion des finances, épargne et objectifs',
     icon: Wallet,
     href: '/modules/budget',
-    gradient: 'from-emerald-500 to-teal-600',
+    accent: 'from-orange-500 to-amber-400',
+    glow: 'rgba(249, 115, 22, 0.4)',
     enabled: true,
     comingSoon: true,
   },
@@ -30,7 +32,8 @@ export const MODULES: ModuleDefinition[] = [
     description: 'Événements, rappels et planning',
     icon: Calendar,
     href: '/modules/calendar',
-    gradient: 'from-blue-500 to-indigo-600',
+    accent: 'from-amber-400 to-yellow-300',
+    glow: 'rgba(251, 191, 36, 0.4)',
     enabled: true,
     comingSoon: true,
   },
@@ -40,7 +43,8 @@ export const MODULES: ModuleDefinition[] = [
     description: 'Entraînement et préparation',
     icon: Bike,
     href: '/modules/triathlon',
-    gradient: 'from-orange-500 to-red-600',
+    accent: 'from-rose-500 to-orange-500',
+    glow: 'rgba(244, 63, 94, 0.4)',
     enabled: true,
     comingSoon: true,
   },
