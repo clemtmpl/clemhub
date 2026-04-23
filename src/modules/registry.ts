@@ -24,7 +24,6 @@ export const MODULES: ModuleDefinition[] = [
     accent: 'from-orange-500 to-amber-400',
     glow: 'rgba(249, 115, 22, 0.4)',
     enabled: true,
-    comingSoon: true,
   },
   {
     key: 'calendar',
