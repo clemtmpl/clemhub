@@ -121,4 +121,4 @@ export function PlannedExpenseDialog({ categories }: { categories: Category[] })
       </DialogContent>
     </Dialog>
   )
-}
+}   

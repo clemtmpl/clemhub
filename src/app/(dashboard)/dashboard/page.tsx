@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { MODULES } from '@/modules/registry'
 import { ModuleCard } from '@/components/shared/module-card'
+import { TodayWidget } from '@/modules/calendar/components/today-widget'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -26,6 +27,8 @@ export default async function DashboardPage() {
           Bienvenue sur ton portail. Accède à tous tes outils depuis un seul endroit.
         </p>
       </div>
+
+      <TodayWidget />
 
       <div>
         <div className="flex items-baseline justify-between mb-5">

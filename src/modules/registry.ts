@@ -34,7 +34,6 @@ export const MODULES: ModuleDefinition[] = [
     accent: 'from-amber-400 to-yellow-300',
     glow: 'rgba(251, 191, 36, 0.4)',
     enabled: true,
-    comingSoon: true,
   },
   {
     key: 'triathlon',
