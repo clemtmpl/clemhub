@@ -92,6 +92,10 @@ export function formatEUR(n: number, opts?: { compact?: boolean }): string {
   }).format(n)
 }
 
+export function formatMonthLabel(date: Date): string {
+  return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+}
+
 export function monthRange(date: Date = new Date()): { start: string; end: string } {
   const start = new Date(date.getFullYear(), date.getMonth(), 1)
   const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)

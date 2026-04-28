@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   getBudgetOverview,
   getBudgetProfile,
@@ -11,6 +12,7 @@ import { ExpenseDonut } from '@/modules/budget/components/expense-donut'
 import { AddTransactionDialog } from '@/modules/budget/components/add-transaction-dialog'
 import {
   formatEUR,
+  formatMonthLabel,
   getEnvelopeStatus,
   plannedExpenseToMonthly,
   resolveSavingsPlan,
@@ -19,7 +21,33 @@ import {
 } from '@/modules/budget/lib/calculations'
 import { ArrowRight, Sparkles, Target, CreditCard, Plane, AlertTriangle } from 'lucide-react'
 
-export default async function BudgetPage() {
+interface PageProps {
+  searchParams: Promise<{ month?: string }>
+}
+
+function parseMonthDate(month?: string): Date {
+  if (!month) return new Date()
+  const [y, m] = month.split('-').map(Number)
+  if (!y || !m || m < 1 || m > 12) return new Date()
+  return new Date(y, m - 1, 1)
+}
+
+function toMonthParam(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+export default async function BudgetPage({ searchParams }: PageProps) {
+  const { month } = await searchParams
+  const currentDate = parseMonthDate(month)
+
+  const today = new Date()
+  const isCurrentMonth =
+    currentDate.getMonth() === today.getMonth() &&
+    currentDate.getFullYear() === today.getFullYear()
+
+  const prevDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+  const nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+
   const [
     { categories, subscriptions, transactions, accounts },
     profile,
@@ -27,10 +55,10 @@ export default async function BudgetPage() {
     envelopes,
     steps,
   ] = await Promise.all([
-    getBudgetOverview(),
+    getBudgetOverview(currentDate),
     getBudgetProfile(),
     getPlannedExpenses(),
-    getEnvelopesWithSpending(),
+    getEnvelopesWithSpending(currentDate),
     getSavingsPlan(),
   ])
 
@@ -75,9 +103,46 @@ export default async function BudgetPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Budget</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Vue d&apos;ensemble de tes finances ce mois-ci</p>
+          <p className="text-muted-foreground mt-1 text-sm">Vue d&apos;ensemble de tes finances</p>
         </div>
-        <AddTransactionDialog categories={categories} />
+        {isCurrentMonth && <AddTransactionDialog categories={categories} />}
+      </div>
+
+      {/* Navigation mensuelle */}
+      <div className="flex items-center gap-2">
+        <Link
+          href={`/modules/budget?month=${toMonthParam(prevDate)}`}
+          className="h-8 w-8 rounded-lg border border-border flex items-center justify-center hover:bg-accent transition-colors"
+          aria-label="Mois précédent"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Link>
+
+        <h2 className="text-base font-semibold capitalize min-w-[160px] text-center">
+          {formatMonthLabel(currentDate)}
+        </h2>
+
+        <Link
+          href={isCurrentMonth ? '#' : `/modules/budget?month=${toMonthParam(nextDate)}`}
+          className={`h-8 w-8 rounded-lg border border-border flex items-center justify-center transition-colors ${
+            isCurrentMonth
+              ? 'opacity-30 pointer-events-none'
+              : 'hover:bg-accent'
+          }`}
+          aria-label="Mois suivant"
+          aria-disabled={isCurrentMonth}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+
+        {!isCurrentMonth && (
+          <Link
+            href="/modules/budget"
+            className="ml-1 text-xs text-primary hover:underline font-medium"
+          >
+            Ce mois
+          </Link>
+        )}
       </div>
 
       <KpiCards
@@ -87,7 +152,7 @@ export default async function BudgetPage() {
         yearlyProjection={monthlySavingCapacity * 12}
       />
 
-      {envelopesInAlert.length > 0 && (
+      {envelopesInAlert.length > 0 && isCurrentMonth && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -111,7 +176,7 @@ export default async function BudgetPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          {currentStep && (
+          {currentStep && isCurrentMonth && (
             <Link
               href="/modules/budget/plan"
               className="block rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-amber-500/5 p-5 hover:border-primary/50 transition-all group"
@@ -161,7 +226,7 @@ export default async function BudgetPage() {
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-baseline justify-between mb-4">
               <h2 className="font-semibold">Répartition des dépenses</h2>
-              <span className="text-xs text-muted-foreground">ce mois</span>
+              <span className="text-xs text-muted-foreground capitalize">{formatMonthLabel(currentDate)}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ExpenseDonut data={donutData} />
@@ -181,13 +246,13 @@ export default async function BudgetPage() {
 
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-baseline justify-between mb-4">
-              <h2 className="font-semibold">Dernières transactions</h2>
+              <h2 className="font-semibold">Transactions</h2>
               <span className="text-xs text-muted-foreground">{transactions.length} ce mois</span>
             </div>
             {transactions.length === 0 ? (
               <div className="py-6 text-center">
                 <p className="text-sm text-muted-foreground mb-4">Aucune transaction ce mois-ci</p>
-                <AddTransactionDialog categories={categories} />
+                {isCurrentMonth && <AddTransactionDialog categories={categories} />}
               </div>
             ) : (
               <ul className="divide-y divide-border">

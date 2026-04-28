@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { monthRange } from './lib/calculations'
 
-export async function getBudgetOverview() {
+export async function getBudgetOverview(date?: Date) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { start, end } = monthRange()
+  const { start, end } = monthRange(date)
 
   const [categoriesRes, subscriptionsRes, transactionsRes, accountsRes] = await Promise.all([
     supabase.from('budget_categories').select('*').eq('user_id', user.id).order('sort_order'),
@@ -76,12 +76,12 @@ export async function getCurrentWeekMission() {
   return data
 }
 
-export async function getEnvelopesWithSpending() {
+export async function getEnvelopesWithSpending(date?: Date) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { start, end } = monthRange()
+  const { start, end } = monthRange(date)
 
   const { data: envelopes } = await supabase
     .from('budget_envelopes')
