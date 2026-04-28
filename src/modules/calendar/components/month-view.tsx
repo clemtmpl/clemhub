@@ -8,6 +8,7 @@ import type { Database } from '@/types/database'
 import { EventDialog } from './event-dialog'
 import { EventPill } from './event-pill'
 import {
+  addDays, startOfDay,
   DAYS_FR, formatRelativeDay, formatTimeRange, formatTime,
   getMonthGrid, isSameDay, isSameMonth, parseISO,
 } from '../lib/dates'
@@ -41,10 +42,24 @@ export function MonthView({ currentDate, events, categories }: MonthViewProps) {
 
   const eventsByDay = new Map<string, CalendarEvent[]>()
   for (const event of events) {
-    const dayKey = format(parseISO(event.starts_at), 'yyyy-MM-dd')
-    const arr = eventsByDay.get(dayKey) ?? []
-    arr.push(event)
-    eventsByDay.set(dayKey, arr)
+    const start = startOfDay(parseISO(event.starts_at))
+    const end = startOfDay(parseISO(event.ends_at))
+    // Pour les events multi-jours (all-day vacances etc.), on les place sur chaque jour
+    if (start < end) {
+      let cur = start
+      while (cur <= end) {
+        const dayKey = format(cur, 'yyyy-MM-dd')
+        const arr = eventsByDay.get(dayKey) ?? []
+        arr.push(event)
+        eventsByDay.set(dayKey, arr)
+        cur = addDays(cur, 1)
+      }
+    } else {
+      const dayKey = format(start, 'yyyy-MM-dd')
+      const arr = eventsByDay.get(dayKey) ?? []
+      arr.push(event)
+      eventsByDay.set(dayKey, arr)
+    }
   }
 
   const selectedDayKey = format(selectedDay, 'yyyy-MM-dd')
@@ -194,7 +209,9 @@ export function MonthView({ currentDate, events, categories }: MonthViewProps) {
                         <p className="font-medium text-sm truncate">{event.title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {event.all_day
-                            ? 'Toute la journée'
+                            ? isSameDay(parseISO(event.starts_at), parseISO(event.ends_at))
+                              ? 'Toute la journée'
+                              : `${format(parseISO(event.starts_at), 'd MMM', { locale: fr })} → ${format(parseISO(event.ends_at), 'd MMM', { locale: fr })}`
                             : formatTimeRange(event.starts_at, event.ends_at)}
                         </p>
                       </div>
