@@ -6,12 +6,13 @@ import { TodayWidget } from '@/modules/calendar/components/today-widget'
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('*')
     .eq('id', user!.id)
     .single()
 
+  const profile = profileData as { full_name?: string | null } | null
   const firstName = profile?.full_name?.split(' ')[0] ?? 'toi'
   const hour = new Date().getHours()
   const greeting = hour < 6 ? 'Bonne nuit' : hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
