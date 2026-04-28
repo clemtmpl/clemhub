@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { createEvent, deleteEvent, updateEvent } from '../actions'
@@ -24,6 +24,14 @@ interface EventDialogProps {
   onOpenChange?: (open: boolean) => void
 }
 
+function toLocalDatetime(iso: string) {
+  return format(new Date(iso), "yyyy-MM-dd'T'HH:mm")
+}
+
+function toLocalDate(iso: string) {
+  return format(new Date(iso), 'yyyy-MM-dd')
+}
+
 export function EventDialog({
   categories,
   trigger,
@@ -39,49 +47,85 @@ export function EventDialog({
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const baseDate = existing
-    ? new Date(existing.starts_at)
-    : initialDate ?? new Date()
+  // Controlled state — tout ce qui est dans le formulaire
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [location, setLocation] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [startsAt, setStartsAt] = useState('')
+  const [endsAt, setEndsAt] = useState('')
+  const [allDay, setAllDay] = useState(false)
+  const [recurrence, setRecurrence] = useState('none')
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('')
 
-  const defaultStart = format(baseDate, "yyyy-MM-dd'T'HH:mm")
-  const defaultEnd = existing
-    ? format(new Date(existing.ends_at), "yyyy-MM-dd'T'HH:mm")
-    : format(new Date(baseDate.getTime() + 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm")
+  // Réinitialise TOUT à chaque ouverture du dialog
+  useEffect(() => {
+    if (!open) return
+    const base = existing ? new Date(existing.starts_at) : initialDate ?? new Date()
+    const isAd = existing?.all_day ?? false
+    setTitle(existing?.title ?? '')
+    setDescription(existing?.description ?? '')
+    setLocation(existing?.location ?? '')
+    setCategoryId(existing?.category_id ?? '')
+    setAllDay(isAd)
+    setRecurrence(existing?.recurrence ?? 'none')
+    setRecurrenceEndDate(existing?.recurrence_end_date ?? '')
+    setError(null)
 
-  const [allDay, setAllDay] = useState(existing?.all_day ?? false)
-  const [recurrence, setRecurrence] = useState(existing?.recurrence ?? 'none')
+    if (isAd) {
+      setStartsAt(existing ? toLocalDate(existing.starts_at) : format(base, 'yyyy-MM-dd'))
+      setEndsAt(existing ? toLocalDate(existing.ends_at) : format(base, 'yyyy-MM-dd'))
+    } else {
+      setStartsAt(existing ? toLocalDatetime(existing.starts_at) : format(base, "yyyy-MM-dd'T'HH:mm"))
+      setEndsAt(
+        existing
+          ? toLocalDatetime(existing.ends_at)
+          : format(new Date(base.getTime() + 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm")
+      )
+    }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Quand allDay change, on convertit le format sans perdre la date
+  const handleAllDayChange = (checked: boolean) => {
+    setAllDay(checked)
+    if (checked) {
+      setStartsAt(startsAt.slice(0, 10))
+      setEndsAt(endsAt.slice(0, 10))
+    } else {
+      const now = new Date()
+      const hh = String(now.getHours()).padStart(2, '0')
+      const mm = String(now.getMinutes()).padStart(2, '0')
+      const hh2 = String(now.getHours() + 1).padStart(2, '0')
+      setStartsAt(`${startsAt.slice(0, 10)}T${hh}:${mm}`)
+      setEndsAt(`${endsAt.slice(0, 10)}T${hh2}:${mm}`)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-
-    const startsAtRaw = fd.get('starts_at') as string
-    const endsAtRaw = fd.get('ends_at') as string
 
     let starts_at: string
     let ends_at: string
     if (allDay) {
-      const [yS, mS, dS] = startsAtRaw.slice(0, 10).split('-').map(Number)
-      const [yE, mE, dE] = endsAtRaw.slice(0, 10).split('-').map(Number)
-      const startDate = new Date(yS, mS - 1, dS, 0, 0, 0, 0)
-      const endDate = new Date(yE, mE - 1, dE, 23, 59, 59, 999)
-      starts_at = startDate.toISOString()
-      ends_at = endDate.toISOString()
+      const [yS, mS, dS] = startsAt.slice(0, 10).split('-').map(Number)
+      const [yE, mE, dE] = endsAt.slice(0, 10).split('-').map(Number)
+      starts_at = new Date(yS, mS - 1, dS, 0, 0, 0, 0).toISOString()
+      ends_at = new Date(yE, mE - 1, dE, 23, 59, 59, 999).toISOString()
     } else {
-      starts_at = new Date(startsAtRaw).toISOString()
-      ends_at = new Date(endsAtRaw).toISOString()
+      starts_at = new Date(startsAt).toISOString()
+      ends_at = new Date(endsAt).toISOString()
     }
 
     const payload = {
-      title: fd.get('title') as string,
-      description: (fd.get('description') as string) || null,
-      location: (fd.get('location') as string) || null,
+      title: title.trim(),
+      description: description.trim() || null,
+      location: location.trim() || null,
       starts_at,
       ends_at,
       all_day: allDay,
-      category_id: (fd.get('category_id') as string) || null,
+      category_id: categoryId || null,
       recurrence: recurrence as 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly',
-      recurrence_end_date: (fd.get('recurrence_end_date') as string) || null,
+      recurrence_end_date: recurrenceEndDate || null,
     }
 
     startTransition(async () => {
@@ -117,9 +161,9 @@ export function EventDialog({
             <Label htmlFor="title">Titre</Label>
             <Input
               id="title"
-              name="title"
               required
-              defaultValue={existing?.title}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: RDV dentiste"
               autoFocus={!existing}
             />
@@ -130,7 +174,7 @@ export function EventDialog({
               id="all_day"
               type="checkbox"
               checked={allDay}
-              onChange={(e) => setAllDay(e.target.checked)}
+              onChange={(e) => handleAllDayChange(e.target.checked)}
               className="h-4 w-4 rounded border-border"
             />
             <Label htmlFor="all_day" className="cursor-pointer">Toute la journée</Label>
@@ -141,28 +185,28 @@ export function EventDialog({
               <Label htmlFor="starts_at">Début</Label>
               <Input
                 id="starts_at"
-                name="starts_at"
                 type={allDay ? 'date' : 'datetime-local'}
                 required
-                defaultValue={allDay ? defaultStart.slice(0, 10) : defaultStart}
+                value={startsAt}
+                onChange={(e) => setStartsAt(e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ends_at">Fin</Label>
               <Input
                 id="ends_at"
-                name="ends_at"
                 type={allDay ? 'date' : 'datetime-local'}
                 required
-                defaultValue={allDay ? defaultEnd.slice(0, 10) : defaultEnd}
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category_id">Catégorie</Label>
-            <Select name="category_id" defaultValue={existing?.category_id ?? undefined}>
-              <SelectTrigger id="category_id">
+            <Label>Catégorie</Label>
+            <Select value={categoryId} onValueChange={setCategoryId}>
+              <SelectTrigger>
                 <SelectValue placeholder="Choisir une catégorie" />
               </SelectTrigger>
               <SelectContent>
@@ -182,16 +226,16 @@ export function EventDialog({
             <Label htmlFor="location">Lieu (optionnel)</Label>
             <Input
               id="location"
-              name="location"
-              defaultValue={existing?.location ?? ''}
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               placeholder="Ex: Cabinet Dr Martin"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="recurrence">Récurrence</Label>
-            <Select value={recurrence} onValueChange={(v) => setRecurrence(v as typeof recurrence)}>
-              <SelectTrigger id="recurrence">
+            <Label>Récurrence</Label>
+            <Select value={recurrence} onValueChange={setRecurrence}>
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -209,13 +253,11 @@ export function EventDialog({
               <Label htmlFor="recurrence_end_date">Jusqu&apos;au (optionnel)</Label>
               <Input
                 id="recurrence_end_date"
-                name="recurrence_end_date"
                 type="date"
-                defaultValue={existing?.recurrence_end_date ?? ''}
+                value={recurrenceEndDate}
+                onChange={(e) => setRecurrenceEndDate(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Vide = sans limite (max 2 ans)
-              </p>
+              <p className="text-xs text-muted-foreground">Vide = sans limite (max 2 ans)</p>
             </div>
           )}
 
@@ -223,9 +265,9 @@ export function EventDialog({
             <Label htmlFor="description">Notes (optionnel)</Label>
             <Textarea
               id="description"
-              name="description"
               rows={2}
-              defaultValue={existing?.description ?? ''}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
